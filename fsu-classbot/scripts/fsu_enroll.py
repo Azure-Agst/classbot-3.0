@@ -7,7 +7,7 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 from ..utils import DiscordNotifier, env
 from ..utils.drivertools import check_xpath_exists, get_wait
 
-class EnrollMe():
+class FSU_Enroller():
     """Main script for handling enrolling"""
 
     def __init__(self, driver, discord) -> None:
@@ -29,19 +29,20 @@ class EnrollMe():
             print("Bad password")
             self.discord.send_embed(
                 title="Bad Password!",
-                message="Your password is incorrect! Please check your credentials and relaunch.",
+                description="Your password is incorrect! Please check your credentials and relaunch.",
                 color=DiscordNotifier.Colors.DANGER
             )
             return
 
         # 1.2) Check for 2fa
         elif login_status == 2:
-            self.discord.send_embed(
+            duo_msg = self.discord.send_embed(
                 title="Duo Approval Required!",
-                message="Please accept 2FA on your device to continue.",
-                color=DiscordNotifier.Colors.SECONDARY
+                description="Please accept 2FA on your device to continue.",
+                color=DiscordNotifier.Colors.WARNING
             )
             self.handle_duo()
+            self.discord.delete_message(duo_msg)
 
         # 2) Navigate to Start
         print("Navigating to Start...")
@@ -185,9 +186,10 @@ class EnrollMe():
         loop_count = 0
 
         # Send discord message to let user know we've begun the loop
-        self.discord.send_embed(
+        start_msg = self.discord.send_embed(
             title="Enrollment Started!",
-            message="Enrollment has started. Please wait for the bot to finish!",
+            description="Enrollment loop has started!\n"+\
+                f"Loop count: `{loop_count}`",
             color=DiscordNotifier.Colors.INFO
         )
 
@@ -196,9 +198,6 @@ class EnrollMe():
 
             # Set up a few vars to be used within our try/except block
             results = {}
-
-            # Print loop count
-            print(f"\rStarting loop {loop_count}...", end="", flush=True)
 
             # Do everything within a try to catch exceptions
             try:
@@ -289,7 +288,7 @@ class EnrollMe():
                 print("\nTimeout Exception Encountered! Exiting...")
                 self.discord.send_embed(
                     title="Timeout Exception Encountered!",
-                    message="Maybe the servers are under high load?" + \
+                    description="Maybe the servers are under high load?" + \
                         "Try increasing the timeout and re-running!",
                     color=DiscordNotifier.Colors.DANGER
                 )
@@ -300,7 +299,7 @@ class EnrollMe():
                 print("\nEmpty Cart Exception Encountered! Exiting...")
                 self.discord.send_embed(
                     title="Empty Cart Exception Encountered!",
-                    message="You have no classes in your cart to enroll into!",
+                    description="You have no classes in your cart to enroll into!",
                     color=DiscordNotifier.Colors.DANGER
                 )
                 return -2
@@ -310,7 +309,7 @@ class EnrollMe():
                 print("\nKeyboard Interrupt Encountered! Exiting...")
                 self.discord.send_embed(
                     title="Keyboard Interrupt Encountered!",
-                    message="You have interrupted the program!",
+                    description="You have interrupted the program!",
                     color=DiscordNotifier.Colors.DANGER
                 )
                 return -3
@@ -321,7 +320,7 @@ class EnrollMe():
                 print("\nConnection Refused Exception Encountered! Exiting...")
                 self.discord.send_embed(
                     title="Connection Refused Encountered!",
-                    message="The connection to the browser was refused! Maybe the browser is down?",
+                    description="The connection to the browser was refused! Maybe the browser is down?",
                     color=DiscordNotifier.Colors.DANGER
                 )
                 return -4
@@ -331,7 +330,7 @@ class EnrollMe():
                 print("\nWebDriver Exception Encountered! Exiting...")
                 self.discord.send_embed(
                     title="WebDriver Exception Encountered!",
-                    message="The browser window was closed! Maybe this was expected?",
+                    description="The browser window was closed! Maybe this was expected?",
                     color=DiscordNotifier.Colors.DANGER
                 )
                 return -5
@@ -347,7 +346,7 @@ class EnrollMe():
                         print("\t" + course_code)
                         self.discord.send_embed(
                             title="Successful enrollment!",
-                            message="Successfully enrolled into " + course_code,
+                            description="Successfully enrolled into " + course_code,
                             color=DiscordNotifier.Colors.SUCCESS
                         )
 
@@ -356,14 +355,27 @@ class EnrollMe():
                 print("Successfully enrolled into all courses!")
                 self.discord.send_embed(
                     title="Total enrollment!",
-                    message="Seems we've successfully enrolled into all courses!",
+                    description="Seems we've successfully enrolled into all courses!",
                     color=DiscordNotifier.Colors.SUCCESS
                 )
                 return 0
 
-            # If we didnt meet ANY of the above criteria, we sleep and go again!
-            time.sleep(env.sleep_time)
+            # Increment loop count
             loop_count += 1
+
+            # Print loop count
+            print(f"\rLoop Counter: {loop_count}", end="", flush=True)
+
+            # Update webhook if modulo env var
+            if loop_count % env.discord_modulo == 0:
+                self.discord.update_embed(
+                    start_msg,
+                    description="Enrollment loop has started!\n"+\
+                        f"Loop count: `{loop_count}`"
+                )
+
+            # We sleep and go again!
+            time.sleep(env.sleep_time)
 
 class EmptyCartException(Exception):
     pass

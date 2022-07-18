@@ -1,5 +1,5 @@
 from .utils import DiscordNotifier, env
-from .scripts.fsu_enroll import EnrollMe
+from .scripts.fsu_enroll import FSU_Enroller
 
 def main():
 
@@ -29,14 +29,13 @@ def main():
 
     # Initialize our driver and start it up
     driver = init_driver()
-    script = EnrollMe(driver, discord)
+    script = FSU_Enroller(driver, discord)
 
     # Notify discord that we've started
     discord.send_embed(
-        title="Starting up!",
-        message="Classbot is booting up...\n" + \
+        title="Classbot is booting up!",
+        description=f"Username: `{env.username}`\n" + \
             f"Driver: `{env.driver}`\n" + \
-            f"Username: `{env.username}`\n" + \
             f"Script: `{script.__class__.__name__}`",
         color=DiscordNotifier.Colors.INFO
     )
@@ -48,7 +47,7 @@ def main():
     driver.quit()
     discord.send_embed(
         title="Shutting down!",
-        message="Classbot is shutting down...",
+        description="Classbot is shutting down...",
         color=DiscordNotifier.Colors.DANGER
     )
     print("\nClassbot has shut down.")

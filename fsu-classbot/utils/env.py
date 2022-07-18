@@ -32,6 +32,8 @@ class EnvDict():
         # discord stuff
         self.discord_url = os.getenv('DISCORD_URL')
         self.discord_pings = os.getenv('DISCORD_PINGS')
+        self.discord_modulo = int(os.getenv('DISCORD_MODULO')) \
+            if os.getenv('DISCORD_MODULO') is not None else 5
 
         # selenium stuff
         self.driver = os.getenv('DRIVER')
