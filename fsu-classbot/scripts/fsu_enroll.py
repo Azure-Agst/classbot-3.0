@@ -37,7 +37,7 @@ class EnrollMe():
         # 1.2) Check for 2fa
         elif login_status == 2:
             self.discord.send_embed(
-                title="2FA Required!",
+                title="Duo Approval Required!",
                 message="Please accept 2FA on your device to continue.",
                 color=DiscordNotifier.Colors.SECONDARY
             )
@@ -181,7 +181,10 @@ class EnrollMe():
         - This loop handles the main enrollment process
         """
 
-        # Send discord message to let user know we've begun the lop
+        # Variable declarations
+        loop_count = 0
+
+        # Send discord message to let user know we've begun the loop
         self.discord.send_embed(
             title="Enrollment Started!",
             message="Enrollment has started. Please wait for the bot to finish!",
@@ -193,6 +196,9 @@ class EnrollMe():
 
             # Set up a few vars to be used within our try/except block
             results = {}
+
+            # Print loop count
+            print(f"\rLoop Count: {loop_count}", end="", flush=True)
 
             # Do everything within a try to catch exceptions
             try:
@@ -335,7 +341,7 @@ class EnrollMe():
             # See if any of our results were successes
             # if so, send a Discord message for each success!
             if any(result["status"] for result in results.values()):
-                print("Successfully enrolled into the following courses:")
+                print("\nSuccessfully enrolled into the following courses:")
                 for course_code, result in results.items():
                     if result[0]:
                         print("\t" + course_code)
@@ -347,7 +353,7 @@ class EnrollMe():
 
             # If ALL of our results were successes, send a Discord message and exit
             if all(result["status"] for result in results.values()):
-                print("\nSuccessfully enrolled into all courses!")
+                print("Successfully enrolled into all courses!")
                 self.discord.send_embed(
                     title="Total enrollment!",
                     message="Seems we've successfully enrolled into all courses!",
@@ -357,6 +363,7 @@ class EnrollMe():
 
             # If we didnt meet ANY of the above criteria, we sleep and go again!
             time.sleep(env.sleep_time)
+            loop_count += 1
 
 class EmptyCartException(Exception):
     pass

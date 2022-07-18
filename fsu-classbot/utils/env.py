@@ -39,7 +39,7 @@ class EnvDict():
             .lower() in ('true', '1', 't')
         self.remote_url = os.getenv('DRIVER_URL')
         self.timeout = os.getenv('DRIVER_TIMEOUT') \
-            if os.getenv('DRIVER_TIMEOUT') is not None else 10
+            if os.getenv('DRIVER_TIMEOUT') is not None else 15
         self.sleep_time = os.getenv('DRIVER_SLEEP') \
             if os.getenv('DRIVER_SLEEP') is not None else 2
 

@@ -7,7 +7,7 @@ Time for a revamp! Gonna design it from the ground up with Docker in mind.
 - [x] Get the script working :)
 - [x] Discord integration
 - [ ] Browserless integration
-- [ ] Docker support
+- [x] Docker support
 
 ## Environment Variables
 
@@ -21,5 +21,5 @@ Time for a revamp! Gonna design it from the ground up with Docker in mind.
 | `DRIVER`          | Yes | None | `<"firefox"\|"browserless">` | The driver you'd like to use (Note: Browserless is a service, not a free choice!)
 | `DRIVER_HEADLESS` | No  | None | `<"true"\|"false">` | If using a local driver, (e.g. `firefox`) this sets whether you want to see the browser as it works
 | `DRIVER_URL`      | No  | None | `<URL>` | If using Browserless, this is the URL of the server you'd like to connect to. This is passed into `selenium.Remote()`
-| `DRIVER_TIMEOUT`  | No  | `10` | `<int>` | The number of seconds for the WebDriver to wait for expected conditions (e.g. `element_to_be_clickable`)
+| `DRIVER_TIMEOUT`  | No  | `15` | `<int>` | The number of seconds for the WebDriver to wait for expected conditions (e.g. `element_to_be_clickable`)
 | `DRIVER_SLEEP`    | No  | `2`  | `<int>` | The number of seconds to wait before looping

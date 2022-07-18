@@ -51,7 +51,7 @@ class DiscordNotifier():
         """Main Discord Message Function"""
 
         # get main file name
-        entrypoint = os.path.basename(__main__.__file__)
+        entrypoint = "classbot-3.0"
 
         # format message contents
         embed = {
