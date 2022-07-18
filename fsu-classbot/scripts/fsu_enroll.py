@@ -198,7 +198,7 @@ class EnrollMe():
             results = {}
 
             # Print loop count
-            print(f"\rLoop Count: {loop_count}", end="", flush=True)
+            print(f"\rStarting loop {loop_count}...", end="", flush=True)
 
             # Do everything within a try to catch exceptions
             try:

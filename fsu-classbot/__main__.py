@@ -27,22 +27,8 @@ def main():
     # Init DiscordNotifier
     discord = DiscordNotifier(env.discord_url)
 
-    # Initialize our driver
-    if env.driver.lower() == "firefox":
-        print("Using Firefox driver!")
-        from .drivers.firefox import FirefoxDriver
-        driver = FirefoxDriver().new_driver()
-
-    elif env.driver.lower() == "browserless":
-        print("Using Browserless driver!")
-        from .drivers.browserless import BrowserlessDriver
-        driver = BrowserlessDriver().new_driver()
-
-    if env.driver is None:
-        print("ERROR: Environment variable 'DRIVER' not set.")
-        return
-
-    # Go ahead and start it up
+    # Initialize our driver and start it up
+    driver = init_driver()
     script = EnrollMe(driver, discord)
 
     # Notify discord that we've started
@@ -50,6 +36,7 @@ def main():
         title="Starting up!",
         message="Classbot is booting up...\n" + \
             f"Driver: `{env.driver}`\n" + \
+            f"Username: `{env.username}`\n" + \
             f"Script: `{script.__class__.__name__}`",
         color=DiscordNotifier.Colors.INFO
     )
@@ -67,6 +54,27 @@ def main():
     print("\nClassbot has shut down.")
     return 0
 
+def init_driver():
+    """Initializes the driver, depending on env var"""
+
+    if env.driver.lower() == "firefox":
+        print("Using Firefox driver!")
+        from .drivers.firefox import FirefoxDriver
+        return FirefoxDriver().new_driver()
+
+    elif env.driver.lower() == "browserless":
+        print("Using Browserless driver!")
+        from .drivers.browserless import BrowserlessDriver
+        return BrowserlessDriver().new_driver()
+
+    elif env.driver.lower() == "docker":
+        print("Using Docker driver!")
+        from .drivers.docker import DockerDriver
+        return DockerDriver().new_driver()
+
+    if env.driver is None:
+        print("ERROR: Environment variable 'DRIVER' not set properly.")
+        return
 
 if __name__ == "__main__":
     exit(main())
