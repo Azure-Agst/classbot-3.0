@@ -1,14 +1,13 @@
 from .utils import DiscordNotifier, env
 from .scripts.fsu_enroll import FSU_Enroller
+from .version import __version__, __author__, __email__
 
 def main():
 
-    # Start
-    print("#########################################")
-    print("#            fsu_classbot.py            #")
-    print("#  Third time's the charm, am I right?  #")
-    print("#     Copyright (c) 2022 Azure-Agst     #")
-    print("#########################################")
+    # Print Header
+    print(f"\nClassbot-3.0 - {__version__}")
+    print("\"Third time's the charm, am I right?\"")
+    print(f"(c) 2022 {__author__} <{__email__}>")
 
     # Disclaimers
     print("\nThis program is intended for use by authorized users only. Unauthorized use or")

@@ -3,7 +3,7 @@ services:
 
   # 1.) Classbot; this project
   classbot:
-    image: ghcr.io/azure-agst/classbot-3.0:v1.0.0
+    image: ghcr.io/azure-agst/classbot-3.0
     tty: true
     environment:
       - DRIVER=Docker
