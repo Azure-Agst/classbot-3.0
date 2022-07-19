@@ -3,6 +3,9 @@ import requests
 from enum import Enum
 from datetime import datetime
 
+# These should be imported from wherever
+from ..version import __version__
+
 BOT_NAME = "fsu-classbot"
 BOT_PFP_URL = ""
 
@@ -175,7 +178,7 @@ class DiscordNotifier():
                     "color": e_color,
                     "timestamp": str(datetime.utcnow().isoformat()),
                     "footer": {
-                        "text": f"{BOT_NAME} on '{socket.gethostname()}'"
+                        "text": f"{BOT_NAME} v{__version__} on '{socket.gethostname()}'"
                     }
                 }
             ]
