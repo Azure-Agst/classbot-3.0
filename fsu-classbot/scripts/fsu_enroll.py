@@ -20,37 +20,87 @@ class FSU_Enroller():
     def run(self) -> None:
         """Run the enroll script"""
 
-        # 1.) Login
-        print("Attempting login...")
-        login_status = self.login()
+        # Do everything in a giant try/except block
+        try:
 
-        # 1.1) Check for bad password
-        if login_status == 1:
-            print("Bad password")
+            # 1.) Login
+            print("Attempting login...")
+            login_status = self.login()
+
+            # 1.1) Check for bad password
+            if login_status == 1:
+                print("Bad password")
+                self.discord.send_embed(
+                    title="Bad Password!",
+                    description="Your password is incorrect! Please check your credentials and relaunch.",
+                    color=DiscordNotifier.Colors.DANGER
+                )
+                return
+
+            # 1.2) Check for 2fa
+            elif login_status == 2:
+                duo_msg = self.discord.send_embed(
+                    title="Duo Approval Required!",
+                    description="Please accept 2FA on your device to continue.",
+                    color=DiscordNotifier.Colors.WARNING
+                )
+                self.handle_duo()
+                self.discord.delete_message(duo_msg)
+
+            # 2) Navigate to Start
+            print("Navigating to Start...")
+            self.nav_to_start()
+
+            # 3) Enroll
+            print("Starting main enrollment loop...")
+            return self.main_enrollment_loop()
+
+        # Now we catch every exception we can!
+
+        # In case we trigger a timeout
+        except TimeoutException:
+            print("\nEC Timeout Encountered! Exiting...")
             self.discord.send_embed(
-                title="Bad Password!",
-                description="Your password is incorrect! Please check your credentials and relaunch.",
+                title="Expected Condition Timeout Encountered!",
+                description= "This occurs whenever an Expected Condition " + \
+                    "is unable to resolve within the set timeout. Sometimes " + \
+                    "this is because the servers are under load, and sometimes" + \
+                    "its due to elements missing entirely! Try increasing  " + \
+                    "`DRIVER_TIMEOUT` or running the bot locally to debug!",
                 color=DiscordNotifier.Colors.DANGER
             )
-            return
+            return -1
 
-        # 1.2) Check for 2fa
-        elif login_status == 2:
-            duo_msg = self.discord.send_embed(
-                title="Duo Approval Required!",
-                description="Please accept 2FA on your device to continue.",
-                color=DiscordNotifier.Colors.WARNING
+        # In case we get interrupted by a keyboard interrupt
+        except KeyboardInterrupt:
+            print("\nKeyboard Interrupt Encountered! Exiting...")
+            self.discord.send_embed(
+                title="Keyboard Interrupt Encountered!",
+                description="You have interrupted the program!",
+                color=DiscordNotifier.Colors.DANGER
             )
-            self.handle_duo()
-            self.discord.delete_message(duo_msg)
-
-        # 2) Navigate to Start
-        print("Navigating to Start...")
-        self.nav_to_start()
-
-        # 3) Enroll
-        print("Starting main enrollment loop...")
-        self.main_enrollment_loop()
+            return -2
+        
+        # In case our connection to our browser gets refused
+        # This happens if the user takes control of the browser
+        except ConnectionRefusedError:
+            print("\nConnection Refused Exception Encountered! Exiting...")
+            self.discord.send_embed(
+                title="Connection Refused Encountered!",
+                description="The connection to the browser was refused! Maybe the browser is down?",
+                color=DiscordNotifier.Colors.DANGER
+            )
+            return -3
+        
+        # In case the browser window is closed
+        except WebDriverException:
+            print("\nWebDriver Exception Encountered! Exiting...")
+            self.discord.send_embed(
+                title="WebDriver Exception Encountered!",
+                description="The browser window was closed! Maybe this was expected?",
+                color=DiscordNotifier.Colors.DANGER
+            )
+            return -4
 
 
     def login(self) -> int:
@@ -288,23 +338,6 @@ class FSU_Enroller():
                         (By.ID, 'win0divDERIVED_REGFRM1_SSR_LINK_STARTOVER')
                     )
                 ).click()
-
-            # NOTE: WHEW! That was one hell of a try block, wasn't it?
-            #       Well now come the exceptions!
-
-            # In case we trigger a timeout
-            except TimeoutException:
-                print("\nEC Timeout Encountered! Exiting...")
-                self.discord.send_embed(
-                    title="Expected Condition Timeout Encountered!",
-                    description= "This occurs whenever an Expected Condition " + \
-                        "is unable to resolve within the set timeout. Sometimes " + \
-                        "this is because the servers are under load, and sometimes" + \
-                        "its due to elements missing entirely! Try increasing  " + \
-                        "`DRIVER_TIMEOUT` or running the bot locally to debug!",
-                    color=DiscordNotifier.Colors.DANGER
-                )
-                return -1
             
             # In case we trigger a "Empty Cart" exception
             except EmptyCartException as e:
@@ -315,40 +348,7 @@ class FSU_Enroller():
                     description=str(e), # cast to string to get text
                     color=DiscordNotifier.Colors.DANGER
                 )
-                return -2
-
-            # In case we get interrupted by a keyboard interrupt
-            except KeyboardInterrupt:
-                print("\nKeyboard Interrupt Encountered! Exiting...")
-                self.discord.send_embed(
-                    title="Keyboard Interrupt Encountered!",
-                    description="You have interrupted the program!",
-                    color=DiscordNotifier.Colors.DANGER
-                )
-                return -3
-            
-            # In case our connection to our browser gets refused
-            # This happens if the user takes control of the browser
-            except ConnectionRefusedError:
-                print("\nConnection Refused Exception Encountered! Exiting...")
-                self.discord.send_embed(
-                    title="Connection Refused Encountered!",
-                    description="The connection to the browser was refused! Maybe the browser is down?",
-                    color=DiscordNotifier.Colors.DANGER
-                )
-                return -4
-            
-            # In case the browser window is closed
-            except WebDriverException:
-                print("\nWebDriver Exception Encountered! Exiting...")
-                self.discord.send_embed(
-                    title="WebDriver Exception Encountered!",
-                    description="The browser window was closed! Maybe this was expected?",
-                    color=DiscordNotifier.Colors.DANGER
-                )
                 return -5
-
-            # NOTE: Those are all of the exceptions, I think! Now back to the main loop!
 
             # Increment loop count
             loop_count += 1
