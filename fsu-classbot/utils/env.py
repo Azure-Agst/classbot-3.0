@@ -28,6 +28,11 @@ class EnvDict():
         self.semester = str(os.getenv('FSU_SEMESTER')).lower()
         if self.semester not in valid_semesters:
             raise Exception("FSU_SEMESTER not set to valid option!")
+        
+        # driver option
+        self.driver = os.getenv('DRIVER')
+        if not self.driver:
+            raise Exception("DRIVER not set!")
 
         # discord stuff
         self.discord_url = os.getenv('DISCORD_URL')
@@ -36,7 +41,6 @@ class EnvDict():
             if os.getenv('DISCORD_MODULO') is not None else 5
 
         # selenium stuff
-        self.driver = os.getenv('DRIVER')
         self.headless = os.getenv('DRIVER_HEADLESS', 'False') \
             .lower() in ('true', '1', 't')
         self.remote_url = os.getenv('DRIVER_REMOTE')

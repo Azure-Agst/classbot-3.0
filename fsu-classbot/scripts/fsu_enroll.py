@@ -187,10 +187,9 @@ class FSU_Enroller():
 
         # Send discord message to let user know we've begun the loop
         start_msg = self.discord.send_embed(
-            title="Enrollment Started!",
-            description="Enrollment loop has started!\n"+\
-                f"Loop count: `{loop_count}`",
-            color=DiscordNotifier.Colors.INFO
+            title="Enrollment Loop Started!",
+            description=f"Loop count: `{loop_count}`",
+            color=DiscordNotifier.Colors.LIGHT
         )
 
         # By this point, we should be on the cart screen...
@@ -202,9 +201,9 @@ class FSU_Enroller():
             # Do everything within a try to catch exceptions
             try:
 
-                # Get shopping cart table contents
+                # Get shopping cart table
                 # NOTE: Now THIS is some functional programming!
-                class_elements = get_wait(self.driver).until(
+                cart_rows = get_wait(self.driver).until(
                     EC.presence_of_element_located(
                         (By.ID, 'SSR_REGFORM_VW$scroll$0') # Parent Table
                     )
@@ -217,8 +216,17 @@ class FSU_Enroller():
                 )
 
                 # Make sure we actually have classes to enroll into
-                if len(class_elements) <= 1:
-                    raise EmptyCartException("No classes in cart to enroll into!")
+                # There are always at least 2 rows in the table:
+                # - If empty cart, first TR is the empty header row, second empty cart message row
+                # - If cart has classes, first TR is the header row, second is the first class
+                # First see if the table format has changed for whatever reason
+                if len(cart_rows) < 2:
+                    raise EmptyCartException("Less than two rows? Something went wrong!")
+
+                # NOTE: Don't like this comparison because it's hardcoded, but
+                # at the same time, using `in` seems so expensive, so whatever...
+                elif cart_rows[1].text == "Your enrollment shopping cart is empty.":
+                    raise EmptyCartException("Your shopping cart is empty!")
                 
                 # If classes exist, lets try enrolling!
                 # Click "Proceed to Step 2 of 3"
@@ -251,6 +259,7 @@ class FSU_Enroller():
                 )
                 
                 # Loop through results table and check for errors
+                print("Table len: ", len(results_table))
                 for i, row in enumerate(results_table):
 
                     # Skip first row (header)
@@ -269,7 +278,7 @@ class FSU_Enroller():
 
                     # Append result to dictionary
                     results[course_code.replace(" ", "")] = {
-                        "status": "Success" in raw_message,
+                        "enrolled": "Success" in raw_message,
                         "message": clean_msg
                     }
 
@@ -285,21 +294,25 @@ class FSU_Enroller():
 
             # In case we trigger a timeout
             except TimeoutException:
-                print("\nTimeout Exception Encountered! Exiting...")
+                print("\nEC Timeout Encountered! Exiting...")
                 self.discord.send_embed(
-                    title="Timeout Exception Encountered!",
-                    description="Maybe the servers are under high load?" + \
-                        "Try increasing the timeout and re-running!",
+                    title="Expected Condition Timeout Encountered!",
+                    description= "This occurs whenever an Expected Condition " + \
+                        "is unable to resolve within the set timeout. Sometimes " + \
+                        "this is because the servers are under load, and sometimes" + \
+                        "its due to elements missing entirely! Try increasing  " + \
+                        "`DRIVER_TIMEOUT` or running the bot locally to debug!",
                     color=DiscordNotifier.Colors.DANGER
                 )
                 return -1
             
             # In case we trigger a "Empty Cart" exception
-            except EmptyCartException:
+            except EmptyCartException as e:
                 print("\nEmpty Cart Exception Encountered! Exiting...")
+                self.discord.delete_message(start_msg)
                 self.discord.send_embed(
                     title="Empty Cart Exception Encountered!",
-                    description="You have no classes in your cart to enroll into!",
+                    description=str(e), # cast to string to get text
                     color=DiscordNotifier.Colors.DANGER
                 )
                 return -2
@@ -337,29 +350,6 @@ class FSU_Enroller():
 
             # NOTE: Those are all of the exceptions, I think! Now back to the main loop!
 
-            # See if any of our results were successes
-            # if so, send a Discord message for each success!
-            if any(result["status"] for result in results.values()):
-                print("\nSuccessfully enrolled into the following courses:")
-                for course_code, result in results.items():
-                    if result[0]:
-                        print("\t" + course_code)
-                        self.discord.send_embed(
-                            title="Successful enrollment!",
-                            description="Successfully enrolled into " + course_code,
-                            color=DiscordNotifier.Colors.SUCCESS
-                        )
-
-            # If ALL of our results were successes, send a Discord message and exit
-            if all(result["status"] for result in results.values()):
-                print("Successfully enrolled into all courses!")
-                self.discord.send_embed(
-                    title="Total enrollment!",
-                    description="Seems we've successfully enrolled into all courses!",
-                    color=DiscordNotifier.Colors.SUCCESS
-                )
-                return 0
-
             # Increment loop count
             loop_count += 1
 
@@ -370,9 +360,41 @@ class FSU_Enroller():
             if loop_count % env.discord_modulo == 0:
                 self.discord.update_embed(
                     start_msg,
-                    description="Enrollment loop has started!\n"+\
-                        f"Loop count: `{loop_count}`"
+                    description=f"Loop count: `{loop_count}`",
                 )
+
+            # Now, send an update message to discord if applicable:
+            # - If any of our results were successes, send message
+            # - If ALL of our results were successes, send message and exit
+            res_bools = [result["enrolled"] for result in results.values()]
+            if any(res_bools):
+
+                # if all, set title; else if some, set title
+                if all(res_bools):
+                    title = "Successfully Enrolled in All Remaining Classes!"
+                else:
+                    title = "Successfully Enrolled in Some Classes..."
+
+                # start message
+                message = "You're now enrolled in the following classes:"
+
+                # iterate over successful results
+                print(f"\nSuccessfully enrolled into the following courses:")
+                for course_code, result in results.items():
+                    if result["enrolled"]:
+                        print("\t" + course_code)
+                        message += f"\n - `{course_code}`"
+
+                # send embed
+                self.discord.send_embed(
+                    title=title,
+                    description=message,
+                    color=DiscordNotifier.Colors.SUCCESS
+                )
+            
+                # if all: done here, so exit
+                if all(res_bools):
+                    return 0
 
             # We sleep and go again!
             time.sleep(env.sleep_time)
