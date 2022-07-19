@@ -3,7 +3,7 @@ services:
 
   # 1.) Classbot; this project
   classbot:
-    image: ghcr.io/azure-agst/classbot-3.0
+    image: ghcr.io/azure-agst/classbot-3.0:v1.0.0
     tty: true
     environment:
       - DRIVER=Docker
@@ -11,6 +11,10 @@ services:
       - DRIVER_REMOTE=http://selenium:4444
     env_file:
       - .env
+
+    # 1.2) Dependency
+    # NOTE: Selenium takes about 30s to spin up
+    #       Must be ready, otherwise Classbot panics
     depends_on:
       selenium:
         condition: service_healthy
@@ -19,6 +23,8 @@ services:
   selenium:
     image: selenium/standalone-firefox:4.3.0-20220706
     shm_size: 2g
+
+    # 2.1) Health Check
     healthcheck:
       test: curl -f http://localhost:4444/status
       start_period: 30s
