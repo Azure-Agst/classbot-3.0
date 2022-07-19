@@ -17,4 +17,4 @@ LABEL org.opencontainers.image.authors="me@azureagst.dev"
 LABEL org.opencontainers.image.source="https://github.com/azure-agst/classbot-3.0"
 
 # Set entrypoint
-CMD [ "python3", "-m", "fsu-classbot" ]
+CMD [ "python3", "-m", "classbot" ]

@@ -326,7 +326,6 @@ class FSU_Enroller():
                 )
                 
                 # Loop through results table and check for errors
-                print("Table len: ", len(results_table))
                 for i, row in enumerate(results_table):
 
                     # Skip first row (header)
