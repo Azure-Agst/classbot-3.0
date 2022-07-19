@@ -4,10 +4,9 @@ services:
 
   # 1.) Classbot; this project
   classbot:
-    build: .
+    image: ghcr.io/azure-agst/classbot-3.0
     tty: true
     environment:
-      - DOCKER_ENV=True
       - DRIVER=Docker
       - DRIVER_HEADLESS=True
       - DRIVER_REMOTE=http://selenium:4444
