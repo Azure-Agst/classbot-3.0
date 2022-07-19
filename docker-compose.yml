@@ -1,4 +1,5 @@
 version: "3.7"
+name: "classbot"
 services:
 
   # 1.) Classbot; this project

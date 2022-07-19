@@ -14,7 +14,7 @@ Time for a revamp! Gonna design it from the ground up with Docker in mind.
 | Variable | Req? | Default | Values | Description |
 |:--------:|:--------:|:-------:|:-------|:------------|
 | `FSU_USERNAME`    | Yes | None | `<FSUID>` | The username used to log into FSU CAS
-| `FSU_PASSWORD`    | Yes | None | `<password>` | The password used to log into FSU CAS
+| `FSU_PASSWORD`    | Yes | None | `"<password>"` | The password used to log into FSU CAS (NOTE: Escape with quotes!)
 | `FSU_SEMESTER`    | Yes | None | `<"spring"\|"summer"\|"fall">` | The desired semester to use for class enrollment
 | `DISCORD_URL`     | Yes | None | `<URL>` | The discord webhook URL you'd like to send notifications to
 | `DISCORD_PINGS`   | No  | None | `<List of escaped tags>` | The tags you'd like to be included before any discord embeds sent (e.g. `"<@!123456789012345678>"`)

@@ -45,7 +45,12 @@ class FSU_Enroller():
                     color=DiscordNotifier.Colors.WARNING
                 )
                 self.handle_duo()
-                self.discord.delete_message(duo_msg)
+                self.discord.update_embed(
+                    duo_msg,
+                    title="Duo Approved!",
+                    description="The script is now proceeding!",
+                    color=DiscordNotifier.Colors.SUCCESS
+                )
 
             # 2) Navigate to Start
             print("Navigating to Start...")
@@ -101,6 +106,18 @@ class FSU_Enroller():
                 color=DiscordNotifier.Colors.DANGER
             )
             return -4
+
+        # Catch all, in case we encounter unexpected crashes
+        except Exception as e:
+            print(f"\nUnknown Exception Encountered! Exiting...\n{e}")
+            self.discord.send_embed(
+                title="Unknown Exception Encountered!",
+                description="An unknown exception has occurred! " + \
+                    "Please check the logs for more details.\n\n" + \
+                    f"`{type(e).__name__}: {str(e)}`",
+                color=DiscordNotifier.Colors.DANGER
+            )
+            return -5
 
 
     def login(self) -> int:
@@ -348,7 +365,7 @@ class FSU_Enroller():
                     description=str(e), # cast to string to get text
                     color=DiscordNotifier.Colors.DANGER
                 )
-                return -5
+                return -6
 
             # Increment loop count
             loop_count += 1

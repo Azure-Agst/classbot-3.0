@@ -37,7 +37,8 @@ class Classbot:
         self.script = FSU_Enroller(self.driver, self.notifier)
 
         # Register signal handlers
-        signal.signal(signal.SIGTERM, self.sigterm_handler)
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
 
         # Notify discord that we're starting
         self.notifier.send_embed(
@@ -77,34 +78,38 @@ class Classbot:
             print("ERROR: Environment variable 'DRIVER' not set properly.")
             return
     
-    def sigterm_handler(self):
+    def signal_handler(self, signal_num: int, _):
         """Handle SIGTERM"""
 
-        print("\nSIGTERM received, exiting...")
+        sig_name = signal.Signals(signal_num).name
 
-        self.driver.quit()
+        print(f"\n{sig_name} received, exiting...")
+
         self.notifier.send_embed(
-            title="Terminated!",
-            description="Classbot encountered a SIGTERM! " + \
-                "Did you stop the docker image? " + \
-                "Shutting down...",
+            title="Classbot has been terminated!",
+            description=f"Classbot encountered a `{sig_name}`! " + \
+                "Did you stop a docker image? Was the bot interrupted? " + \
+                "Regardless, shutting down...",
             color=DiscordNotifier.Colors.DANGER
         )
+
+        self.driver.quit()
 
         sys.exit(0)
 
     def exit_handler(self, exit_code: int = 0):
         """Handle exiting normally"""
 
-        print("\nClassbot has shut down.")
+        print("\nClassbot is shutting down...")
 
-        self.driver.quit()
         self.notifier.send_embed(
-            title="Shutting down!",
+            title="Classbot is shutting down!",
             description="Classbot exited with status code: " + \
                 f"`{exit_code}`!",
             color=DiscordNotifier.Colors.DANGER
         )
+
+        self.driver.quit()
 
         sys.exit(exit_code)
 
