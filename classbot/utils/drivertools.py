@@ -19,3 +19,13 @@ def check_xpath_exists(driver: webdriver, xpath: str):
     except NoSuchElementException:
         return False
     return True
+
+def check_id_exists(driver: webdriver, id: str):
+    """Checks to see if item at given id exists"""
+
+    # Simple try-catch :)
+    try:
+        driver.find_element(By.ID, id)
+    except NoSuchElementException:
+        return False
+    return True

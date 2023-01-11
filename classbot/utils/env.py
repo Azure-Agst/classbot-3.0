@@ -49,4 +49,8 @@ class EnvDict():
         self.sleep_time = os.getenv('DRIVER_SLEEP') \
             if os.getenv('DRIVER_SLEEP') is not None else 2
 
+        # debug!
+        self.debug = os.getenv('DEBUG', 'False') \
+            .lower() in ('true', '1', 't')
+
 env = EnvDict()

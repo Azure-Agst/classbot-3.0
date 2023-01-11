@@ -1,4 +1,5 @@
 import time
+import traceback
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -65,13 +66,15 @@ class FSU_Enroller():
         # In case we trigger a timeout
         except TimeoutException:
             print("\nEC Timeout Encountered! Exiting...")
+            tb = traceback.format_exc()
             self.discord.send_embed(
                 title="Expected Condition Timeout Encountered!",
-                description= "This occurs whenever an Expected Condition " + \
+                description="This occurs whenever an Expected Condition " + \
                     "is unable to resolve within the set timeout. Sometimes " + \
-                    "this is because the servers are under load, and sometimes" + \
+                    "this is because the servers are under load, and sometimes " + \
                     "its due to elements missing entirely! Try increasing  " + \
-                    "`DRIVER_TIMEOUT` or running the bot locally to debug!",
+                    "`DRIVER_TIMEOUT` or running the bot locally to debug!" + \
+                    (f"\n\n```\n{tb}\n```" if env.debug else ""),
                 color=DiscordNotifier.Colors.DANGER
             )
             return -1
@@ -183,10 +186,45 @@ class FSU_Enroller():
         - Navigate driver through website to get to loop starting point
         """
 
-        # Wait for dashboard to load, then click on "Future" tab of "My Courses" section
+        # Loop to make sure we're in the student page
+        while True:
+
+            # Wait for dashboard to load
+            get_wait(self.driver).until(
+                EC.presence_of_element_located(
+                    (By.ID, 'kgoui_Rcontent_I0_Rprimary_I0_Rcontent_I0')
+                )
+            )
+
+            # get main box element
+            main_box = self.driver.find_element(By.XPATH, '//*[@id="kgoui_Rcontent_I0_Rprimary_I0_Rcontent_I0"]/p').text
+            clean_box = main_box.split("<br>")[-1].split("\n")[0].lower()
+
+            # see if faculty text is there
+            if "employee" in clean_box:
+                print("In faculty section! Changing to student...")
+
+                # click the student button
+                get_wait(self.driver).until(
+                    EC.presence_of_element_located(
+                        (By.ID, 'kgoui_Rcontent_I0_Rsecondary2_I1_Rcontent_I0_Rcontent_I1')
+                    )
+                ).click()
+            
+            # else, check if student text is there
+            elif "courses" in clean_box or "academics" in clean_box:
+
+                # we're in a student profile, break
+                break
+
+            # else, if in neither...
+            else:
+                raise Exception("Not in student or faculty page? idk.")
+
+        # Click on "Future" tab of "My Courses" section
         get_wait(self.driver).until(
             EC.element_to_be_clickable(
-                (By.ID, 'kgoui_Rcontent_I0_Rcolumn1_I1_Rcontent_I0_Rtabs1_label')
+                (By.ID, 'kgoui_Rcontent_I0_Rprimary_I0_Rcontent_I1_Rtabs1_tab')
             )
         ).click()
 
@@ -229,7 +267,7 @@ class FSU_Enroller():
         # Click on the semester
         get_wait(self.driver).until(
             EC.element_to_be_clickable(
-                (By.ID, f"SSR_DUMMY_RECV1$sels${idx}$$0")
+                (By.ID, f"win0divSSR_DUMMY_RECV1$sels${idx}$$0")
             )
         ).click()
 
@@ -272,12 +310,8 @@ class FSU_Enroller():
                 # NOTE: Now THIS is some functional programming!
                 cart_rows = get_wait(self.driver).until(
                     EC.presence_of_element_located(
-                        (By.ID, 'SSR_REGFORM_VW$scroll$0') # Parent Table
+                        (By.XPATH, '//*[@id="SSR_REGFORM_VW$scroll$0"]/tbody') # Class table body
                     )
-                ).find_element(
-                    By.CSS_SELECTOR, "table[class='PSLEVEL1GRID']" # Class Table
-                ).find_element(
-                    By.CSS_SELECTOR, "tbody" # Body
                 ).find_elements(
                     By.CSS_SELECTOR, "tr" # Here are our entries!
                 )
@@ -296,10 +330,10 @@ class FSU_Enroller():
                     raise EmptyCartException("Your shopping cart is empty!")
                 
                 # If classes exist, lets try enrolling!
-                # Click "Proceed to Step 2 of 3"
+                # Click "Continue"
                 get_wait(self.driver).until(
                     EC.element_to_be_clickable(
-                        (By.ID, 'DERIVED_REGFRM1_LINK_ADD_ENRL$82$')
+                        (By.XPATH, '//*[@id="gh-footer"]/ul/li/a')
                     )
                 ).click()
 
@@ -307,30 +341,24 @@ class FSU_Enroller():
                 # Click "Finish Enrolling"
                 get_wait(self.driver).until(
                     EC.element_to_be_clickable(
-                        (By.ID, 'DERIVED_REGFRM1_SSR_PB_SUBMIT')
+                       (By.XPATH, '//*[@id="gh-footer"]/ul/li[3]/a')
                     )
                 ).click()
 
-                # Now we should be on the results screen
-                # Get the results table
+                # Now we should be on the results screen, get the results table
+                # NOTE: The new UI uses bootstrap to make things look nicer, but
+                #       the original table is still there, just hidden! Thanks
+                #       sysadmins. :)
                 results_table = get_wait(self.driver).until(
                     EC.presence_of_element_located(
-                        (By.ID, 'SSR_SS_ERD_ER$scroll$0')
+                        (By.XPATH, '//*[@id="SSR_SS_ERD_ER$scroll$0"]//table/tbody')
                     )
-                ).find_element(
-                    By.CSS_SELECTOR, "table[class='PSLEVEL1GRID']"
-                ).find_element(
-                    By.CSS_SELECTOR, "tbody"
                 ).find_elements(
                     By.CSS_SELECTOR, "tr"
                 )
                 
                 # Loop through results table and check for errors
-                for i, row in enumerate(results_table):
-
-                    # Skip first row (header)
-                    if i == 0:
-                        continue
+                for row in results_table:
 
                     # Get the cells of the row
                     cells = row.find_elements(
@@ -351,7 +379,7 @@ class FSU_Enroller():
                 # Click "Add another class" and start over
                 get_wait(self.driver).until(
                     EC.element_to_be_clickable(
-                        (By.ID, 'win0divDERIVED_REGFRM1_SSR_LINK_STARTOVER')
+                       (By.XPATH, '//*[@id="gh-footer"]/ul/li[2]/a')
                     )
                 ).click()
             

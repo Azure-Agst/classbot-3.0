@@ -23,6 +23,7 @@ class FirefoxDriver():
         # create driver
         return webdriver.Firefox(
             executable_path=gd_path, 
-            options=options
+            options=options,
+            log_path='./Log/geckodriver.log'
         )
     
