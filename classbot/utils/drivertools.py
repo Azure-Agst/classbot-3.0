@@ -5,10 +5,10 @@ from selenium.common.exceptions import NoSuchElementException
 
 from .env import env
 
-def get_wait(driver: webdriver):
+def get_wait(driver: webdriver, timeout: int = env.timeout):
     """Returns a WebDriverWait object"""
 
-    return WebDriverWait(driver, env.timeout)
+    return WebDriverWait(driver, timeout)
 
 def check_xpath_exists(driver: webdriver, xpath: str):
     """Checks to see if item at given xpath exists"""

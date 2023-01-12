@@ -48,3 +48,6 @@ venv.bak/
 
 # Geckodriver
 geckodriver.log
+
+# Custom Cookiejars
+*.cookiejar

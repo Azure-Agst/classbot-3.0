@@ -48,7 +48,8 @@ class EnvDict():
             if os.getenv('DRIVER_TIMEOUT') is not None else 15
         self.sleep_time = os.getenv('DRIVER_SLEEP') \
             if os.getenv('DRIVER_SLEEP') is not None else 2
-
+        self.cookiejar = os.getenv('DRIVER_COOKIE_PATH') \
+            if os.getenv('DRIVER_COOKIE_PATH') is not None else ""
         # debug!
         self.debug = os.getenv('DEBUG', 'False') \
             .lower() in ('true', '1', 't')

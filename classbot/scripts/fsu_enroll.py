@@ -1,5 +1,8 @@
 import time
+import json
 import traceback
+from os import path
+from urllib.parse import urlparse
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -7,6 +10,7 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 
 from ..utils import DiscordNotifier, env
 from ..utils.drivertools import check_xpath_exists, get_wait
+from ..utils.cookies import load_cookies, save_cookies
 
 class FSU_Enroller():
     """Main script for handling enrolling"""
@@ -24,6 +28,9 @@ class FSU_Enroller():
         # Do everything in a giant try/except block
         try:
 
+            # Load cookies, if available.
+            load_cookies(self.driver)
+
             # 1.) Login
             print("Attempting login...")
             login_status = self.login()
@@ -40,18 +47,7 @@ class FSU_Enroller():
 
             # 1.2) Check for 2fa
             elif login_status == 2:
-                duo_msg = self.discord.send_embed(
-                    title="Duo Approval Required!",
-                    description="Please accept 2FA on your device to continue.",
-                    color=DiscordNotifier.Colors.WARNING
-                )
                 self.handle_duo()
-                self.discord.update_embed(
-                    duo_msg,
-                    title="Duo Approved!",
-                    description="The script is now proceeding!",
-                    color=DiscordNotifier.Colors.SUCCESS
-                )
 
             # 2) Navigate to Start
             print("Navigating to Start...")
@@ -61,7 +57,9 @@ class FSU_Enroller():
             print("Starting main enrollment loop...")
             return self.main_enrollment_loop()
 
+        #
         # Now we catch every exception we can!
+        #
 
         # In case we trigger a timeout
         except TimeoutException:
@@ -101,11 +99,13 @@ class FSU_Enroller():
             return -3
         
         # In case the browser window is closed
-        except WebDriverException:
-            print("\nWebDriver Exception Encountered! Exiting...")
+        except WebDriverException as e:
+            print("\nGeneric WebDriver Exception Encountered! Exiting...")
+            print(str(e))
+            print(traceback.format_exc())            
             self.discord.send_embed(
                 title="WebDriver Exception Encountered!",
-                description="The browser window was closed! Maybe this was expected?",
+                description="The browser window was closed! Maybe this was expected? Check the logs!",
                 color=DiscordNotifier.Colors.DANGER
             )
             return -4
@@ -161,20 +161,102 @@ class FSU_Enroller():
         """
 
         # Print statement
-        print(f"Duo detected, waiting for approval...", end="", flush=True)
+        print(f"Duo detected! ", end="", flush=True)
 
-        # Main loop
-        while True:
+        # Swap to Duo iFrame
+        get_wait(self.driver).until(
+            EC.frame_to_be_available_and_switch_to_it(
+                (By.XPATH, '//*[@id="duo_iframe"]')
+            )
+        )
 
-            # If iframe still there, we're not logged in yet...
-            if check_xpath_exists(self.driver, '//*[@id="duo_iframe"]'):
-                print(".", end="", flush=True)
-            else:
-                print(f"\nDuo no longer detected! Proceeding!")
-                break
+        # Sleep to let everything load.
+        # NOTE: Can't do a wait condition here bc the frame looks totally
+        #       different when "Remember Me" cookies skip 2FA entirely.
+        time.sleep(1)
 
-            # Sleep...
-            time.sleep(3)
+        # See if we have to deal with interaction here
+        if check_xpath_exists(self.driver, '//*[@id="auth_methods"]'):
+
+            # Get the API endpoint for our iframe
+            duo_api_url = urlparse(self.driver.current_url).netloc
+
+            # Send discord message letting people know approval is required
+            duo_msg = self.discord.send_embed(
+                title="Duo Approval Required!",
+                description="Please accept 2FA on your device to continue.\n" + \
+                    "If this is your first time approving, you may need to approve twice.",
+                color=DiscordNotifier.Colors.WARNING
+            )
+
+            # See if auto-login message exists. If it does, auto-login started.
+            # Cancel auto login, ask to remember, then re-auth.
+            if check_xpath_exists(self.driver, '//*[@class="message-text"]'):               
+
+                # Click Cancel
+                get_wait(self.driver).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, '//*[@class="btn-cancel"]')
+                    )
+                ).click()
+
+                # Click Remember Me
+                get_wait(self.driver).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, '//*[@name="dampen_choice"]')
+                    )
+                ).click()
+
+                # Click the user's default method button
+                get_wait(self.driver).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, '//*[@class="used-automatically"]/../../button')
+                    )
+                ).click()
+
+            # Print that we're now waiting
+            print("Awaiting user input...", end="", flush=True)
+
+            # Enter endless loop, where we're checking the status message
+            while True:
+
+                # Get message element, or nothing if closed
+                if check_xpath_exists(self.driver, '//*[@class="message-text"]'):
+                    message = self.driver.find_element(By.XPATH, '//*[@class="message-text"]').text
+                else:
+                    message = ""
+
+                # If success in message, we're good!
+                if "success" in message.lower():
+
+                    # End bullet point line
+                    print("\nDuo no longer detected! Proceeding!")
+
+                    # Save our cookies
+                    save_cookies(duo_api_url, self.driver)
+
+                    # Update Discord Message
+                    self.discord.update_embed(
+                        duo_msg,
+                        title="Duo Approved!",
+                        description="The script is now proceeding!",
+                        color=DiscordNotifier.Colors.SUCCESS
+                    )
+
+                    # Done here
+                    break
+
+        # If we get the "Logging you in..." page, we can skip!
+        else:
+            print("Handled via auth caching!")
+
+        # Swap back to default content
+        self.driver.switch_to.default_content()
+
+        # Wait for title to change, meaning new page is loaded
+        get_wait(self.driver).until(
+            EC.title_contains("myFSU Portal")
+        )
 
         # return success
         return 0
@@ -186,97 +268,102 @@ class FSU_Enroller():
         - Navigate driver through website to get to loop starting point
         """
 
-        # Loop to make sure we're in the student page
+        # Click on Student Central icon in the "myFSU Links" section
+        # Sometimes the home page doesn't like loading and needs a refresh.
+        # Wait a few seconds and see if the SC icon has loaded.
+        # If it hasn't, we need a refresh.
         while True:
+            try:
+                if "Homepage" not in self.driver.title:
+                    e = get_wait(self.driver, 5).until(
+                        EC.element_to_be_clickable(
+                            (By.XPATH, "//a[@title='Student Central']")
+                        )
+                    ).click()
+                else:
+                    break
+            except TimeoutException:
+                print("Home page failed to load! Refreshing...")
+                self.driver.refresh()
+                time.sleep(3)
 
-            # Wait for dashboard to load
-            get_wait(self.driver).until(
-                EC.presence_of_element_located(
-                    (By.ID, 'kgoui_Rcontent_I0_Rprimary_I0_Rcontent_I0')
-                )
-            )
+        # Determine whether or not we're in Student version of SC
+        # If not, run JS to swap to student tab
+        current_tab = self.driver.find_element(By.XPATH, '//*[@id="HOMEPAGE_SELECTOR$PIMG"]/span').text
+        current_tab_clean = current_tab.split("<br>")[-1].split("\n")[0].lower()
+        if "student" not in current_tab_clean:
 
-            # get main box element
-            main_box = self.driver.find_element(By.XPATH, '//*[@id="kgoui_Rcontent_I0_Rprimary_I0_Rcontent_I0"]/p').text
-            clean_box = main_box.split("<br>")[-1].split("\n")[0].lower()
+            # Javascript that swaps the pages
+            self.driver.execute_script('lpSwipeToTabFromDD("SA.EMPLOYEE.FSU_STUDENT_HP");')
 
-            # see if faculty text is there
-            if "employee" in clean_box:
-                print("In faculty section! Changing to student...")
+            # Sleep a sec
+            time.sleep(2)
 
-                # click the student button
-                get_wait(self.driver).until(
-                    EC.presence_of_element_located(
-                        (By.ID, 'kgoui_Rcontent_I0_Rsecondary2_I1_Rcontent_I0_Rcontent_I1')
-                    )
-                ).click()
-            
-            # else, check if student text is there
-            elif "courses" in clean_box or "academics" in clean_box:
-
-                # we're in a student profile, break
-                break
-
-            # else, if in neither...
-            else:
-                raise Exception("Not in student or faculty page? idk.")
-
-        # Click on "Future" tab of "My Courses" section
+        # Click on "My Classes"
         get_wait(self.driver).until(
             EC.element_to_be_clickable(
-                (By.ID, 'kgoui_Rcontent_I0_Rprimary_I0_Rcontent_I1_Rtabs1_tab')
+                (By.XPATH, '//*[@id="win0divPTNUI_LAND_REC_GROUPLET$10"]')
             )
         ).click()
 
-        # Enter enrollment website by clicking on the checkmark icon within the "Future" tab
-        # We use an XPath hack to search for icon by its title attribute
-        get_wait(self.driver).until(
-            EC.element_to_be_clickable(
-                (By.XPATH, "//img[@title='Enroll in a course']")
-            )
-        ).click()
+        # Sleep 2 seconds
+        time.sleep(2)
+        
+        # Clicking won't work, so run some really bastardized
+        # JavaScript to swap to the Add Classes tab.
+        self.driver.execute_script("""
+            top.ptgpPage.openUrlWithWarning(
+                'https://campusadmin.omni.fsu.edu/psc/sprdcs_newwin/EMPLOYEE/SA/c/SA_LEARNER_SERVICES.SSR_SSENRL_CART.GBL?NavColl=true', 
+                'top.ptgpPage.selectStep(\\'ADMN_S201807141525557333111812\\');', 
+                false
+            );
+        """)
 
-        # Now, we should be within OMNI, FSU's main HR webapp
-        # This webapp operates using iframes, so we need to swap to it
+        # The actual enrollment process operates within an iframe, 
+        # so we need to swap to it
         get_wait(self.driver).until(
             EC.frame_to_be_available_and_switch_to_it(
                 (By.XPATH, '//*[@id="main_target_win0"]')
             )
         )
 
-        # Wait for semester table to render, then enumerate it and pick the
-        # option that corresponds to the requested semester
-        semesters = get_wait(self.driver).until(
-            EC.presence_of_element_located(
-                (By.CLASS_NAME, 'PSLEVEL2GRID')
-            )
-        ).find_elements(
-            By.CSS_SELECTOR, "span[id*='TERM_CAR$']"
-        )
+        # See if semester table exists
+        # If so, we need to select the right semester
+        if check_xpath_exists(self.driver, '//*[@id="PSLEVEL2GRID"]'):
 
-        # Loop through semesters and find the one we want
-        idx = -1
-        for i, semester in enumerate(semesters):
-            if env.semester in semester.text.lower():
-                print(f"Found semester: {semester.text}! (Index: {i})")
-                idx = i
-                break
-        if idx == -1:
-            raise Exception(f"Could not find semester: {env.semester}!")
-        
-        # Click on the semester
-        get_wait(self.driver).until(
-            EC.element_to_be_clickable(
-                (By.ID, f"win0divSSR_DUMMY_RECV1$sels${idx}$$0")
+            # Wait for semester table to render, then enumerate it and pick the
+            # option that corresponds to the requested semester
+            semesters = get_wait(self.driver).until(
+                EC.presence_of_element_located(
+                    (By.CLASS_NAME, 'PSLEVEL2GRID')
+                )
+            ).find_elements(
+                By.CSS_SELECTOR, "span[id*='TERM_CAR$']"
             )
-        ).click()
 
-        # Press "Continue" on term select screen
-        get_wait(self.driver).until(
-            EC.element_to_be_clickable(
-                (By.ID, 'DERIVED_SSS_SCT_SSR_PB_GO')
-            )
-        ).click()
+            # Loop through semesters and find the one we want
+            idx = -1
+            for i, semester in enumerate(semesters):
+                if env.semester in semester.text.lower():
+                    print(f"Found semester: {semester.text}! (Index: {i})")
+                    idx = i
+                    break
+            if idx == -1:
+                raise Exception(f"Could not find semester: {env.semester}!")
+            
+            # Click on the semester
+            get_wait(self.driver).until(
+                EC.element_to_be_clickable(
+                    (By.ID, f"win0divSSR_DUMMY_RECV1$sels${idx}$$0")
+                )
+            ).click()
+
+            # Press "Continue" on term select screen
+            get_wait(self.driver).until(
+                EC.element_to_be_clickable(
+                    (By.ID, 'DERIVED_SSS_SCT_SSR_PB_GO')
+                )
+            ).click()
 
         # We are now on the "Add Classes Screen!"
         return 0
