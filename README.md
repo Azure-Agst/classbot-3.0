@@ -1,13 +1,14 @@
 # Classbot 3.0
 
-<!-- TODO: 
-    Badges go here, once the project goes public.
-    Use https://shields.io :)
--->
+![GitHub](https://img.shields.io/github/license/Azure-Agst/classbot-3.0) ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Azure-Agst/classbot-3.0/build_and_push.yml?label=Docker%20Build)
 
 Tired of admitting defeat when the last class for your perfect schedule is already full? Classbot can help.
 
 Classbot is a Python & Selenium powered web bot that can be used to help you swipe up enrollments in your desired classes within seconds of them becoming available. Just put your desired classes into your cart and let Classbot do the rest! Enrollment day and Drop/Add have never been easier!
+
+|**Update: May 10, 2023**|
+|:-:|
+|Good news everybody! I've graduated! Yay, everybody clap! :partying_face::mortar_board::tada:<br>--<br>Anyways, support for this project will not be provided from here on out. Feel free to use fork this, or use it as inspiration for your own class enrollment bot. Don't really care as long as it complies with the license. Just know that I will not be maintaining this. :)|
 
 ## Usage
 
